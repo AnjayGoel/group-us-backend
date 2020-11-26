@@ -1,4 +1,5 @@
 import time
+from utils import BASE_URL, send_email
 import numpy as np
 import secrets
 from dataclasses import dataclass
@@ -140,10 +141,32 @@ class matching:
         return ind
 
     def sendMails(self):
-        print("sending mails")
+        print("Send Init Emails")
+        for i in self.members:
+            # send_email()
+            pass
 
     def sendFinalMail(self):
-        print("sending final mails")
+        print("Send Final Mails")
+        # send to owner
+        for i in self.finalGrps:
+            for j in i.members:
+                # send_email()
+                pass
+
+    def initEmailContent(self, id: str):
+        p = next(x for x in self.members if x.id == id)
+        return f"{p.name}\nPlease Fill Out this form {BASE_URL}/fill/{self.id}/{p.secret} for {self.title}. From\n{self.owner}"
+
+    def finalEmailToOwnerContent(self, id: str):
+        grpStr = ""
+        for i in self.finalGrps:
+            tempStr = ""
+            for j in i:
+                tempStr += f"{i.name}, "
+            grpStr += (tempStr+"\n")
+        p = next(x for x in self.members if x.id == id)
+        return f"{self.owner}\n Final Groups For {self.title} are: \n{grpStr}"
 
     def solve(self):
         arr = np.array(self.preferences)

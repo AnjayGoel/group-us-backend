@@ -21,7 +21,7 @@ def fill(id: str, secret: str):
     else:
         obj = matching.getFromFile(id)
         hasSecret, name = obj.hasSecret(secret)
-        if not hasSecret:
+        if (not hasSecret or obj.deadline < time.time()):
             return str(ret), 404
         else:
             ret["name"] = name
@@ -38,7 +38,7 @@ def submit(id: str, secret: str):
         return str(ret), 404
     else:
         obj = matching.getFromFile(id)
-        if not obj.hasSecret(secret):
+        if (not obj.hasSecret(secret) or obj.deadline < time.time()):
             return str(ret), 404
         else:
             def fill_in_background(data: Dict):
