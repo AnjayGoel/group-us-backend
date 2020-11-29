@@ -1,4 +1,4 @@
-# group_us_app
+# Group Us
 A web-app to automatically form m groups out of mn people given their preferences.  
 Based on [Stable-Roommate-Generalised](https://github.com/AnjayGoel/Stable-Roommate-Generalised)  
   
