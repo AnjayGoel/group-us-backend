@@ -146,7 +146,7 @@ class matching:
         email = EmailClient()
         for i in self.members:
             email.send_email(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
-                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fill/{self.id}/{i.secret}">form</a> for {self.title}.""", "Form Created By", self.owner.name]))
+                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.id}/{i.secret}">form</a> for {self.title}.""", "Form Created By", self.owner.name]))
 
         print("Sent Init Emails")
         email.close()

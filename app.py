@@ -1,5 +1,6 @@
 from os.path import isfile, join
 from posix import listdir
+import threading
 from flask import Flask, request, redirect
 from os import path
 from models import *
@@ -51,12 +52,12 @@ def fill(id: str, secret: str):
     ret = {"status": 0}
     names = []
     if not (path.exists(f"./data/{id}.json")):
-        return str(ret), 404
+        return json.dumps(ret), 404
     else:
         obj = matching.getFromFile(id)
         hasSecret, name = obj.hasSecret(secret)
         if (not hasSecret or obj.deadline < time.time()):
-            return str(ret), 404
+            return json.dumps(ret), 404
         else:
             ret["name"] = name
             ret["title"] = obj.title
@@ -72,7 +73,7 @@ def submit(id: str, secret: str):
     ret = {"status": 0}
     names = []
     if not (path.exists(f"./data/{id}.json")):
-        return str(ret), 404
+        return json.dumps(ret), 404
     else:
         obj = matching.getFromFile(id)
         if (not obj.hasSecret(secret) or obj.deadline < time.time()):
@@ -80,17 +81,17 @@ def submit(id: str, secret: str):
         else:
             def fill_in_background(data: Dict):
                 pref = [0]*(obj.nums)
-                for i in range(len(data["name"])):
+                for i in range(len(data)):
                     index = obj.members.index(
-                        next(x for x in obj.members if x.name == data["name"][i]))
-                    pref[index] = data["pref"][i]
+                        next(x for x in obj.members if x.name == data[i][0]))
+                    pref[index] = data[i][1]
                 obj.preferences[obj.getIndexFromSecret(secret)] = pref
                 matching.saveToFile(obj)
                 if (obj.hasDeadlinePassed() or obj.isComplete()):
                     obj.solve()
 
             th = Thread(target=fill_in_background, kwargs={
-                'data': request.get_json()})
+                "data": request.get_json()["data"]})
             th.start()
             ret["status"] = 1
             return json.dumps(ret), 201
@@ -107,13 +108,13 @@ def create():
             members.append(person(data["member_names"][i],
                                   data["member_emails"][i]))
         obj = matching(deadline=data["deadline"], members=members,
-                       owner=owner, title=data["title"], grpSize=data["grpSize"])
+                       owner=owner, title=data["title"], grpSize=int(data["grpSize"]))
         matching.saveToFile(obj)
         deadlines.append([obj.id, obj.deadline])
         obj.sendInitMails()
     th = Thread(target=do_in_background, kwargs={'data': request.get_json()})
     th.start()
-    return "{'status':1}", 201
+    return json.dumps({"status": 0}), 201
 
 
 if __name__ == '__main__':
