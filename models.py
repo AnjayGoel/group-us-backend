@@ -1,15 +1,18 @@
+import email
 import time
-from utils import BASE_URL, send_email
+from utils import BASE_URL, EmailClient
 import numpy as np
 import secrets
 from dataclasses import dataclass
 import dataclasses
 from typing import *
 from algorithm import *
-from os import path
+from os import makedirs, path
 import json
 import pickle
 import pprint
+from email.mime.text import MIMEText
+import shutil
 
 
 @dataclass
@@ -44,10 +47,10 @@ class matching:
     def __init__(self, deadline: float = - 1, owner: person = None, title: str = "", members: List[person] = None, id: str = None, nums=None, preferences=None, grpSize: int = None, finalGrps: List[List[members]] = None):
         self.owner = owner
         self.members = members
-        if (deadline > time.time()):
+        if (deadline > 0):
             self.deadline = deadline
         else:
-            self.deadline = time.time() + 7*24*60*60
+            self.deadline = time.time() + 2*24*60*60
 
         if (preferences != None):
             self.preferences = preferences
@@ -95,17 +98,15 @@ class matching:
             for i in obj["members"]:
                 x.members.append(person(**i))
 
-            print(id)
-            print(x.id)
-            print("\n----------------------\n")
             return x
         else:
             return None
 
     @classmethod
     def saveToFile(cls, obj):
-        print("-------saving to file----------")
-        print(dataclasses.asdict(obj))
+        if not os.path.exists("./data/"):
+            os.makedirs("./data/")
+
         f = open(f"./data/{obj.id}.json", "w")
         json.dump(dataclasses.asdict(obj), f, indent=2)
         f.close()
@@ -129,7 +130,7 @@ class matching:
     def getNames(self):
         lst = []
         for i, mem in enumerate(self.members):
-            lst.extend([i, mem.name])
+            lst.append(mem.name)
         return lst
 
     def getIndexFromSecret(self, secret: str) -> int:
@@ -140,50 +141,47 @@ class matching:
                 break
         return ind
 
-    def sendMails(self):
-        print("Send Init Emails")
+    def sendInitMails(self):
+        print("Sending Init Emails")
+        email = EmailClient()
         for i in self.members:
-            # send_email()
-            pass
+            email.send_email(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
+                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fill/{self.id}/{i.secret}">form</a> for {self.title}.""", "Form Created By", self.owner.name]))
+
+        print("Sent Init Emails")
+        email.close()
 
     def sendFinalMail(self):
-        print("Send Final Mails")
-        # send to owner
+        print("Sending Final Mails")
+        email = EmailClient()
+        finalMembersAll = []
         for i in self.finalGrps:
-            for j in i.members:
-                # send_email()
-                pass
-
-    def initEmailContent(self, id: str):
-        p = next(x for x in self.members if x.id == id)
-        return f"{p.name}\nPlease Fill Out this form {BASE_URL}/fill/{self.id}/{p.secret} for {self.title}. From\n{self.owner}"
-
-    def finalEmailToOwnerContent(self, id: str):
-        grpStr = ""
-        for i in self.finalGrps:
-            tempStr = ""
-            for j in i:
-                tempStr += f"{i.name}, "
-            grpStr += (tempStr+"\n")
-        p = next(x for x in self.members if x.id == id)
-        return f"{self.owner}\n Final Groups For {self.title} are: \n{grpStr}"
+            finalMembersAll.append(' '.join([x.name for x in i]))
+        for i, grp in enumerate(self.finalGrps):
+            for j in grp:
+                email.send_email(recipient=[j.email], subject=f"Group Allocation for {self.title}",
+                                 body="<br>".join([j.name, f"Your Group for {self.title} consits of:", finalMembersAll[i]]))
+        email.send_email(recipient=[self.owner.email], subject=f"Group Allocation for {self.title}", body="<br>".join(
+            [self.owner.name, f"The Groups For {self.title} are:", '<br>'.join(finalMembersAll)]))
+        print("Sent Final Emails")
+        email.close()
 
     def solve(self):
         arr = np.array(self.preferences)
-
-        if (len(arr[arr < 0]) != 0):
-            mean = arr[arr > 0].mean()
-            if (mean == np.nan):
-                mean = 5.0
-            arr[arr < 0] = mean
+        arr[arr < 0] = 0
 
         score, grps = Game(
             arr, r=self.grpSize, iter2=2, iter1=2).solve()
+        print(f"{score}----{grps}")
         self.finalGrps = []
         for grp in grps:
             tempGrp = []
             for memInd in grp:
                 tempGrp.append(self.members[memInd])
             self.finalGrps.append(tempGrp)
-        print(self.finalGrps)
+        if not os.path.exists("./data/complete/"):
+            os.makedirs("./data/complete")
+        open(f"./data/complete/{self.id}.json", "w").close()
+        shutil.move(os.path.abspath(f"./data/{self.id}.json"),
+                    os.path.abspath(f"./data/complete/{self.id}.json"))
         self.sendFinalMail()

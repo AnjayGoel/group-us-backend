@@ -1,17 +1,51 @@
+from os.path import isfile, join
+from posix import listdir
 from flask import Flask, request, redirect
 from os import path
 from models import *
 import dataclasses
 from threading import *
+from flask_cors import CORS, cross_origin
 from typing import *
+from dotenv import load_dotenv
+
 app = Flask(__name__)
+cors = CORS(app)
+load_dotenv()
+app.config['CORS_HEADERS'] = 'Content-Type'
+deadlines = []
+
+
+def check_for_deadlines():
+    files = [f for f in listdir("./data/") if isfile(join("./data", f))]
+    for f in files:
+        obj = matching.getFromFile(f.split(".")[0])
+        deadlines.append([obj.id, obj.deadline])
+    while True:
+        time.sleep(3)
+        due = [x for x in deadlines if x[1] < time.time()]
+        for i in due:
+            obj = matching.getFromFile(i[0])
+            if not obj == None:
+                print(f"Inside:{i[0]}")
+
+                def temp(obj=None):
+                    obj.solve()
+                Thread(target=temp, kwargs={
+                    'obj': obj}).start()
+
+
+th = Thread(target=check_for_deadlines)
+th.start()
 
 
 @app.route('/')
+@cross_origin()
 def hello_world():
     return "TODO"
 
 
+@cross_origin()
 @app.route('/fill/<string:id>/<string:secret>', methods=['GET'])
 def fill(id: str, secret: str):
     ret = {"status": 0}
@@ -25,11 +59,14 @@ def fill(id: str, secret: str):
             return str(ret), 404
         else:
             ret["name"] = name
+            ret["title"] = obj.title
+            ret["owner_name"] = obj.owner.name
             ret["names"] = obj.getNames()
             ret["status"] = 1
-            return str(ret), 201
+            return json.dumps(ret), 201
 
 
+@cross_origin()
 @app.route('/submit/<string:id>/<string:secret>', methods=['POST'])
 def submit(id: str, secret: str):
     ret = {"status": 0}
@@ -43,8 +80,10 @@ def submit(id: str, secret: str):
         else:
             def fill_in_background(data: Dict):
                 pref = [0]*(obj.nums)
-                for i in range(len(data["index"])):
-                    pref[data["index"][i]] = data["pref"][i]
+                for i in range(len(data["name"])):
+                    index = obj.members.index(
+                        next(x for x in obj.members if x.name == data["name"][i]))
+                    pref[index] = data["pref"][i]
                 obj.preferences[obj.getIndexFromSecret(secret)] = pref
                 matching.saveToFile(obj)
                 if (obj.hasDeadlinePassed() or obj.isComplete()):
@@ -54,13 +93,14 @@ def submit(id: str, secret: str):
                 'data': request.get_json()})
             th.start()
             ret["status"] = 1
-            return str(ret), 201
+            return json.dumps(ret), 201
 
 
+@cross_origin()
 @app.route('/create', methods=['POST'])
 def create():
     def do_in_background(data: Dict):
-        print(data)
+
         owner = person(data['owner_name'], data['owner_email'])
         members = []
         for i in range(len(data["member_names"])):
@@ -69,7 +109,8 @@ def create():
         obj = matching(deadline=data["deadline"], members=members,
                        owner=owner, title=data["title"], grpSize=data["grpSize"])
         matching.saveToFile(obj)
-        obj.sendMails()
+        deadlines.append([obj.id, obj.deadline])
+        obj.sendInitMails()
     th = Thread(target=do_in_background, kwargs={'data': request.get_json()})
     th.start()
     return "{'status':1}", 201
