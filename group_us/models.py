@@ -12,6 +12,7 @@ import pprint
 from email.mime.text import MIMEText
 import shutil
 
+from datetime import datetime
 from group_us import *
 from group_us.utils import BASE_URL, EmailClient
 from group_us.algorithm import *
@@ -149,7 +150,7 @@ class matching:
         email = EmailClient()
         for i in self.members:
             email.send_email(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
-                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.id}/{i.secret}">form</a> for {self.title}.""", "Form Created By", self.owner.name]))
+                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.id}/{i.secret}">form</a> for {self.title}. Deadline is {datetime.fromtimestamp(self.deadline)}. Group Size is {self.grpSize}""", "Form Created By", self.owner.name]))
 
         print("Sent Init Emails")
         email.close()
