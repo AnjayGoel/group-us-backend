@@ -13,9 +13,9 @@ def main():
     return "TODO"
 
 if __name__ == "__main__":
-    if not os.path.exists("~/group_us_data/"):
-            os.makedirs("~/group_us_data/")
+    if not os.path.exists(dataDir):
+            os.makedirs(dataDir)
     
-    if not os.path.exists("~/group_us_data/complete"):
-            os.makedirs("~/group_us_data/complete")
+    if not os.path.exists(path.join(dataDir,"complete","")):
+            os.makedirs(path.join(dataDir,"complete",""))
     app.run() 
