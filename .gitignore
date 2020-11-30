@@ -1,4 +1,4 @@
-data/
+/group_us/data/
 __pycache__/
 env/
 .env

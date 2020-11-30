@@ -3,47 +3,19 @@ from posix import listdir
 import threading
 from flask import Flask, request, redirect
 from os import path
-from models import *
 import dataclasses
 from threading import *
 from flask_cors import CORS, cross_origin
 from typing import *
 from dotenv import load_dotenv
 
-app = Flask(__name__)
+from group_us import app
+from group_us.models import *
+
 cors = CORS(app)
 load_dotenv()
 app.config['CORS_HEADERS'] = 'Content-Type'
 deadlines = []
-
-
-def check_for_deadlines():
-    files = [f for f in listdir("./data/") if isfile(join("./data", f))]
-    for f in files:
-        obj = matching.getFromFile(f.split(".")[0])
-        deadlines.append([obj.id, obj.deadline])
-    while True:
-        time.sleep(3)
-        due = [x for x in deadlines if x[1] < time.time()]
-        for i in due:
-            obj = matching.getFromFile(i[0])
-            if not obj == None:
-                print(f"Inside:{i[0]}")
-
-                def temp(obj=None):
-                    obj.solve()
-                Thread(target=temp, kwargs={
-                    'obj': obj}).start()
-
-
-th = Thread(target=check_for_deadlines)
-th.start()
-
-
-@app.route('/')
-@cross_origin()
-def hello_world():
-    return "TODO"
 
 
 @cross_origin()
@@ -117,6 +89,26 @@ def create():
     return json.dumps({"status": 0}), 201
 
 
-if __name__ == '__main__':
-    app.debug = True
-    app.run()
+def check_for_deadlines():
+    files = [f for f in listdir("./data/") if isfile(join("./data", f))]
+    for f in files:
+        obj = matching.getFromFile(f.split(".")[0])
+        deadlines.append([obj.id, obj.deadline])
+    while True:
+        time.sleep(60*5)
+        due = [x for x in deadlines if x[1] < time.time()]
+        for i in due:
+            obj = matching.getFromFile(i[0])
+            if not obj == None:
+                print(f"Inside:{i[0]}")
+
+                def temp(obj=None):
+                    obj.solve()
+                Thread(target=temp, kwargs={
+                    'obj': obj}).start()
+
+
+th = Thread(target=check_for_deadlines)
+th.start()
+
+

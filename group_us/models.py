@@ -1,18 +1,21 @@
 import email
 import time
-from utils import BASE_URL, EmailClient
 import numpy as np
 import secrets
 from dataclasses import dataclass
 import dataclasses
 from typing import *
-from algorithm import *
 from os import makedirs, path
 import json
 import pickle
 import pprint
 from email.mime.text import MIMEText
 import shutil
+
+
+from group_us.utils import BASE_URL, EmailClient
+from group_us.algorithm import *
+
 
 
 @dataclass
