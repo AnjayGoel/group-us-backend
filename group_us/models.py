@@ -12,10 +12,9 @@ import pprint
 from email.mime.text import MIMEText
 import shutil
 
-
+from group_us import *
 from group_us.utils import BASE_URL, EmailClient
 from group_us.algorithm import *
-
 
 
 @dataclass
@@ -91,8 +90,8 @@ class matching:
 
     @classmethod
     def getFromFile(cls, id: str):
-        if (os.path.exists(f"./data/{id}.json")):
-            f = open(f"./data/{id}.json", "r")
+        if (os.path.exists(os.path.join(dataDir, f"{id}.json"))):
+            f = open(os.path.join(dataDir, f"{id}.json"), "r")
             obj = json.load(f)
             f.close()
             x = cls(**obj)
@@ -107,10 +106,11 @@ class matching:
 
     @classmethod
     def saveToFile(cls, obj):
-        if not os.path.exists("./data/"):
-            os.makedirs("./data/")
+        if not os.path.exists(dataDir):
+            os.makedirs(dataDir)
 
-        f = open(f"./data/{obj.id}.json", "w")
+        f = open(os.path.join(dataDir, f"{obj.id}.json"), "w")
+        print(f.name)
         json.dump(dataclasses.asdict(obj), f, indent=2)
         f.close()
 
@@ -182,9 +182,10 @@ class matching:
             for memInd in grp:
                 tempGrp.append(self.members[memInd])
             self.finalGrps.append(tempGrp)
-        if not os.path.exists("./data/complete/"):
-            os.makedirs("./data/complete")
-        open(f"./data/complete/{self.id}.json", "w").close()
-        shutil.move(os.path.abspath(f"./data/{self.id}.json"),
-                    os.path.abspath(f"./data/complete/{self.id}.json"))
+        if not os.path.exists(os.path.join(dataDir, "complete", "")):
+            os.makedirs(os.path.join(dataDir, "complete", ""))
+        open(os.path.join(dataDir, "complete", f"{self.id}.json"), "w").close()
+        shutil.move(os.path.abspath(os.path.join(dataDir, f"{self.id}.json")),
+                    os.path.abspath(os.path.join(
+                        dataDir, "complete", f"{self.id}.json")))
         self.sendFinalMail()

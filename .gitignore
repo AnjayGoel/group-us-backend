@@ -1,5 +1,7 @@
 /group_us/data/
-__pycache__/
+/group_us/__pycache__/
 env/
 .env
 .vscode/
+data/
+/group_us/.env

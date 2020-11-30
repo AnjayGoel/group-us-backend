@@ -9,7 +9,7 @@ from flask_cors import CORS, cross_origin
 from typing import *
 from dotenv import load_dotenv
 
-from group_us import app
+from group_us import *
 from group_us.models import *
 
 cors = CORS(app)
@@ -23,7 +23,7 @@ deadlines = []
 def fill(id: str, secret: str):
     ret = {"status": 0}
     names = []
-    if not (path.exists(f"./data/{id}.json")):
+    if not (path.exists(os.path.join(dataDir, f"{id}.json"))):
         return json.dumps(ret), 404
     else:
         obj = matching.getFromFile(id)
@@ -39,12 +39,12 @@ def fill(id: str, secret: str):
             return json.dumps(ret), 201
 
 
-@cross_origin()
-@app.route('/submit/<string:id>/<string:secret>', methods=['POST'])
+@ cross_origin()
+@ app.route('/submit/<string:id>/<string:secret>', methods=['POST'])
 def submit(id: str, secret: str):
     ret = {"status": 0}
     names = []
-    if not (path.exists(f"./data/{id}.json")):
+    if not (path.exists(os.path.join(dataDir, f"{id}.json"))):
         return json.dumps(ret), 404
     else:
         obj = matching.getFromFile(id)
@@ -69,8 +69,8 @@ def submit(id: str, secret: str):
             return json.dumps(ret), 201
 
 
-@cross_origin()
-@app.route('/create', methods=['POST'])
+@ cross_origin()
+@ app.route('/create', methods=['POST'])
 def create():
     def do_in_background(data: Dict):
 
@@ -86,11 +86,12 @@ def create():
         obj.sendInitMails()
     th = Thread(target=do_in_background, kwargs={'data': request.get_json()})
     th.start()
-    return json.dumps({"status": 0}), 201
+    return json.dumps({"status": 1}), 201
 
 
 def check_for_deadlines():
-    files = [f for f in listdir("./data/") if isfile(join("./data", f))]
+    files = [f for f in listdir(dataDir)
+             if isfile(join(dataDir, f))]
     for f in files:
         obj = matching.getFromFile(f.split(".")[0])
         deadlines.append([obj.id, obj.deadline])
@@ -100,8 +101,6 @@ def check_for_deadlines():
         for i in due:
             obj = matching.getFromFile(i[0])
             if not obj == None:
-                print(f"Inside:{i[0]}")
-
                 def temp(obj=None):
                     obj.solve()
                 Thread(target=temp, kwargs={
@@ -110,5 +109,3 @@ def check_for_deadlines():
 
 th = Thread(target=check_for_deadlines)
 th.start()
-
-
