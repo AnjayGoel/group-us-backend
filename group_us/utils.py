@@ -31,4 +31,4 @@ class EmailClient:
         self.server_ssl.close()
 
 
-BASE_URL = "http://127.0.0.1:3000/"
+BASE_URL = "https://anjaygoel.github.io/GroupUs/#"
