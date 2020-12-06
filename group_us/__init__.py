@@ -9,7 +9,7 @@ dataDir = path.join( path.expanduser('~'),"GroupUsData","")
 logger= logging.getLogger()
 logger.setLevel(logging.DEBUG) # or whatever
 handler = logging.FileHandler(path.join(dataDir,"log.log"), 'w', 'utf-8') # or whatever
-handler.setFormatter(logging.Formatter('%(name)s %(message)s')) # or whatever
+handler.setFormatter(logging.Formatter('%(name)s:%(asctime)s:%(message)s')) # or whatever
 logger.addHandler(handler)
 
 import group_us.views
