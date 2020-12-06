@@ -169,6 +169,7 @@ class matching:
         email.close()
 
     def solve(self):
+        logger.debug(f"Solving {self.id}")
         arr = np.array(self.preferences)
         arr[arr < 0] = 0
 

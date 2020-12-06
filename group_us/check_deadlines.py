@@ -18,7 +18,6 @@ for i in due:
     obj = matching.getFromFile(i[0])
     if not obj == None:
         def temp(obj=None):
-            logger.debug(f"Solving {obj.id}")
             obj.solve()
         Thread(target=temp, kwargs={
             'obj': obj}).start()
