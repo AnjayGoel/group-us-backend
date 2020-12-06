@@ -8,7 +8,7 @@ from threading import *
 from flask_cors import CORS, cross_origin
 from typing import *
 from dotenv import load_dotenv
-
+from group_us.check_deadlines import *
 from group_us import *
 from group_us.models import *
 
@@ -72,7 +72,6 @@ def submit(id: str, secret: str):
             ret["status"] = 1
             return json.dumps(ret), 201
 
-
 @ cross_origin()
 @ app.route('/create', methods=['POST'])
 def create():
@@ -96,3 +95,9 @@ def create():
     th = Thread(target=do_in_background, kwargs={'data': data})
     th.start()
     return json.dumps({"status": 1}), 201
+
+@ cross_origin()
+@ app.route('/check', methods=['GET'])
+def check():
+    check_deadline()
+    return "Done"
