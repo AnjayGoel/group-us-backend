@@ -5,7 +5,7 @@ from os.path import *
 import time
 from group_us.algorithm import *
 from group_us.models import *
-from group_us import dataDir
+from group_us import *
 
 deadlines = []
 files = [f for f in listdir(dataDir)
@@ -18,6 +18,7 @@ for i in due:
     obj = matching.getFromFile(i[0])
     if not obj == None:
         def temp(obj=None):
+            logger.debug(f"Solving {obj.id}")
             obj.solve()
         Thread(target=temp, kwargs={
             'obj': obj}).start()

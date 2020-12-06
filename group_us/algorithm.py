@@ -4,8 +4,6 @@ import random
 import math
 from subprocess import call
 import os
-
-
 def clear():
     _ = call('clear' if os.name == 'posix' else 'cls')
 

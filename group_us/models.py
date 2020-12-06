@@ -7,8 +7,6 @@ import dataclasses
 from typing import *
 from os import makedirs, path
 import json
-import pickle
-import pprint
 from email.mime.text import MIMEText
 import shutil
 
@@ -111,7 +109,7 @@ class matching:
             os.makedirs(dataDir)
 
         f = open(os.path.join(dataDir, f"{obj.id}.json"), "w")
-        print(f.name)
+        logger.debug(f.name)
         json.dump(dataclasses.asdict(obj), f, indent=2)
         f.close()
 
@@ -146,17 +144,17 @@ class matching:
         return ind
 
     def sendInitMails(self):
-        print("Sending Init Emails")
+        logger.debug("Sending Init Emails")
         email = EmailClient()
         for i in self.members:
             email.send_email(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
                              body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.id}/{i.secret}">form</a> for {self.title}. Deadline is {datetime.fromtimestamp(self.deadline).strftime("%H:%M %d-%m-%Y")}. Group Size is {self.grpSize}""", "Form Created By", self.owner.name]))
 
-        print("Sent Init Emails")
+        logger.debug("Sent Init Emails")
         email.close()
 
     def sendFinalMail(self):
-        print("Sending Final Mails")
+        logger.debug("Sending Final Mails")
         email = EmailClient()
         finalMembersAll = []
         for i in self.finalGrps:
@@ -167,7 +165,7 @@ class matching:
                                  body="<br>".join([j.name, f"Your Group for {self.title} consits of:", finalMembersAll[i]]))
         email.send_email(recipient=[self.owner.email], subject=f"Group Allocation for {self.title}", body="<br>".join(
             [self.owner.name, f"The Groups For {self.title} are:", '<br>'.join(finalMembersAll)]))
-        print("Sent Final Emails")
+        logger.debug("Sent Final Emails")
         email.close()
 
     def solve(self):
@@ -176,7 +174,7 @@ class matching:
 
         score, grps = Game(
             arr, r=self.grpSize, iter2=2, iter1=2).solve()
-        print(f"{score}----{grps}")
+        logger.debug(f"{score}----{grps}")
         self.finalGrps = []
         for grp in grps:
             tempGrp = []

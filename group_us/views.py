@@ -96,25 +96,3 @@ def create():
     th = Thread(target=do_in_background, kwargs={'data': data})
     th.start()
     return json.dumps({"status": 1}), 201
-
-
-def check_for_deadlines():
-    files = [f for f in listdir(dataDir)
-             if isfile(join(dataDir, f))]
-    for f in files:
-        obj = matching.getFromFile(f.split(".")[0])
-        deadlines.append([obj.id, obj.deadline])
-    while True:
-        time.sleep(60*5)
-        due = [x for x in deadlines if x[1] < time.time()]
-        for i in due:
-            obj = matching.getFromFile(i[0])
-            if not obj == None:
-                def temp(obj=None):
-                    obj.solve()
-                Thread(target=temp, kwargs={
-                    'obj': obj}).start()
-
-
-th = Thread(target=check_for_deadlines)
-th.start()
