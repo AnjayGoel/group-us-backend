@@ -5,3 +5,4 @@ env/
 .vscode/
 data/
 /group_us/.env
+venv
