@@ -1,9 +1,12 @@
-import numpy as np
-from typing import *
-import random
 import math
-from subprocess import call
 import os
+import random
+from subprocess import call
+from typing import *
+
+import numpy as np
+
+
 def clear():
     _ = call('clear' if os.name == 'posix' else 'cls')
 
@@ -26,144 +29,143 @@ class Game:
         super().__init__()
 
     @staticmethod
-    def fromCSV(filePath, r: int = 4):
-        prefs = np.genfromtxt(filePath, delimiter=',')
+    def from_csv(file_path, r: int = 4):
+        prefs = np.genfromtxt(file_path, delimiter=',')
         return Game(prefs, r)
 
-    def getMemPrefForGroup(self, mem: int, grp: List[int]) -> int:
+    def get_mem_pref_for_group(self, mem: int, grp: List[int]) -> int:
         pref: int = 0
         for i in grp:
             pref += self.prefs[mem][i]
         pref = pref * (1.0 / len(grp))
         return pref
-    
 
-    def getGroupPrefForMem(self, mem: int, grp: List[int]) -> int:
+    def get_group_pref_for_mem(self, mem: int, grp: List[int]) -> int:
         pref: int = 0
         for i in grp:
             pref += self.prefs[i][mem]
         pref = pref * (1.0 / len(grp))
         return pref
-        
 
-    def getGroupScore(self, y: List[int]) -> int:
-        if (len(y) <= 1):
+    def get_group_score(self, y: List[int]) -> int:
+        if len(y) <= 1:
             return 0
         score: int = 0
         for i in y:
             for j in y:
                 if not (i == j):
                     score += self.prefs[i][j]
-        score = score * (1.0 / (len(y) ** 2-len(y)))
+        score = score * (1.0 / (len(y) ** 2 - len(y)))
         return score
 
-    def getNetScore(self) -> float:
+    def get_net_score(self) -> float:
         score = 0
         for i in self.filled:
-            score += self.getGroupScore(i.members)
-        return score/self.ng
+            score += self.get_group_score(i.members)
+        return score / self.ng
 
     def solve(self):
-        while (len(self.ungrouped) != 0):
-            self.addOneMember()
+        while len(self.ungrouped) != 0:
+            self.add_one_member()
 
         self.filled.extend(self.unfilled)
         self.unfilled = []
-        self.optimize(useFilled=True)
-        grps = []
+        self.optimize(use_filled=True)
+        groups = []
         for i in self.filled:
-            grps.append(i.members)
-        return self.getNetScore(), grps
+            groups.append(i.members)
+        return self.get_net_score(), groups
 
-    def optimize(self, useFilled: bool = True):
-        if (useFilled):
+    def optimize(self, use_filled: bool = True):
+        if use_filled:
             grps = self.filled
         else:
             grps = self.unfilled
 
-        iter = self.iter2 if useFilled else self.iter1
+        iterator = self.iter2 if use_filled else self.iter1
 
-        for a in range(iter):
-            for grp1 in grps:
-                for mem1 in grp1.members:
-                    for grp2 in grps:
-                        if (mem1 == -1):
+        for a in range(iterator):
+            for grp_one in grps:
+                for mem_one in grp_one.members:
+                    for grp_two in grps:
+                        if mem_one == -1:
                             break
-                        if (grp2 == grp1):
+                        if grp_two == grp_one:
                             continue
-                        for mem2 in grp2.members:
-                            if (mem1 == -1):
+                        for mem2 in grp_two.members:
+                            if mem_one == -1:
                                 break
-                            if (mem2 == mem1):
+                            if mem2 == mem_one:
                                 continue
-                            grp2mem1 = grp2.members.copy()
-                            grp2mem1.remove(mem2)
-                            grp2mem1.append(mem1)
-                            grp1mem2 = grp1.members.copy()
-                            grp1mem2.remove(mem1)
-                            grp1mem2.append(mem2)
+                            grp_two_mem_one = grp_two.members.copy()
+                            grp_two_mem_one.remove(mem2)
+                            grp_two_mem_one.append(mem_one)
+                            grp_one_mem_two = grp_one.members.copy()
+                            grp_one_mem_two.remove(mem_one)
+                            grp_one_mem_two.append(mem2)
 
-                            grp1newScore = self.getGroupScore(grp1mem2)
-                            grp2newScore = self.getGroupScore(grp2mem1)
+                            grp_one_new_score = self.get_group_score(grp_one_mem_two)
+                            grp_two_new_score = self.get_group_score(grp_two_mem_one)
 
-                            if (grp1newScore + grp2newScore > self.getGroupScore(grp1.members) + self.getGroupScore(grp2.members)):
-                                grp1.addMember(mem2)
-                                grp1.removeMember(mem1)
-                                grp2.addMember(mem1)
-                                grp2.removeMember(mem2)
-                                mem1 = -1
+                            if (grp_one_new_score + grp_two_new_score > self.get_group_score(grp_one.members)
+                                    + self.get_group_score(grp_two.members)):
+                                grp_one.add_member(mem2)
+                                grp_one.remove_member(mem_one)
+                                grp_two.add_member(mem_one)
+                                grp_two.remove_member(mem2)
+                                mem_one = -1
 
-    def addOneMember(self):
+    def add_one_member(self):
 
         proposed = np.zeros(
             shape=(len(self.ungrouped), len(self.unfilled)), dtype=bool)
 
-        isTempGrouped = [False for i in range(len(self.ungrouped))]
+        is_temp_grouped = [False for i in range(len(self.ungrouped))]
 
-        tempPref = np.zeros(
+        temp_pref = np.zeros(
             shape=(len(self.ungrouped), len(self.unfilled)))
 
-        tempPrefOrder = np.zeros(
+        temp_pref_order = np.zeros(
             shape=(len(self.ungrouped), len(self.unfilled)), dtype=int)
 
         for i, mem in enumerate(self.ungrouped):
             for j, grp in enumerate(self.unfilled):
-                tempPref[i][j] = self.getMemPrefForGroup(mem, grp.members)
+                temp_pref[i][j] = self.get_mem_pref_for_group(mem, grp.members)
 
         for i, mem in enumerate(self.ungrouped):
-            tempPrefOrder[i] = np.argsort(tempPref[i])[::-1]
+            temp_pref_order[i] = np.argsort(temp_pref[i])[::-1]
 
-        while (isTempGrouped.count(False) != 0):
+        while is_temp_grouped.count(False) != 0:
             for i, mem in enumerate(self.ungrouped):
 
-                if (isTempGrouped[i]):
+                if is_temp_grouped[i]:
                     continue
 
-                if (np.count_nonzero(proposed[i] == False) == 0):
-                    isTempGrouped[i] = True
+                if np.count_nonzero(proposed[i] == False) == 0:
+                    is_temp_grouped[i] = True
                     continue
-                for j in tempPrefOrder[i]:
-                    if (proposed[i][j]):
+                for j in temp_pref_order[i]:
+                    if proposed[i][j]:
                         continue
 
                     grp = self.unfilled[j]
                     proposed[i][j] = True
-                    pref = self.getGroupPrefForMem(mem,grp.members)
-                    if (pref > grp.tempScore):
-                        if grp.tempMember >= 0:
-                            isTempGrouped[self.ungrouped.index(
-                                grp.tempMember)] = False
-                        grp.addTemp(mem)
-                        isTempGrouped[i] = True
+                    pref = self.get_group_pref_for_mem(mem, grp.members)
+                    if pref > grp.temp_score:
+                        if grp.temp_member >= 0:
+                            is_temp_grouped[self.ungrouped.index(
+                                grp.temp_member)] = False
+                        grp.add_temp(mem)
+                        is_temp_grouped[i] = True
                         break
 
         for grp in self.unfilled:
-            if (grp.tempMember < 0):
+            if grp.temp_member < 0:
                 continue
-            self.ungrouped.remove(grp.tempMember)
-            grp.addPermanently()
+            self.ungrouped.remove(grp.temp_member)
+            grp.add_permanently()
 
-        self.optimize(useFilled=False)
+        self.optimize(use_filled=False)
 
         for grp in self.unfilled:
             if grp.size() >= self.r or len(self.ungrouped) == 0:
@@ -178,26 +180,26 @@ class Group:
         super().__init__()
         self.game = game
         self.members = members
-        self.tempMember = -1
-        self.tempScore = -1
+        self.temp_member = -1
+        self.temp_score = -1
 
-    def addMember(self, x: int):
+    def add_member(self, x: int):
         self.members.append(x)
 
-    def removeMember(self, x: int):
+    def remove_member(self, x: int):
         self.members.remove(x)
 
-    def addTemp(self, x: int) -> int:
-        self.tempMember = x
-        self.tempScore = self.game.getGroupPrefForMem(x, self.members)
-        return self.tempScore
+    def add_temp(self, x: int) -> int:
+        self.temp_member = x
+        self.temp_score = self.game.get_group_pref_for_mem(x, self.members)
+        return self.temp_score
 
-    def addPermanently(self):
-        if (self.tempMember == -1):
+    def add_permanently(self):
+        if self.temp_member == -1:
             return
-        self.addMember(self.tempMember)
-        self.tempMember = -1
-        self.tempScore = -1
+        self.add_member(self.temp_member)
+        self.temp_member = -1
+        self.temp_score = -1
 
     def size(self) -> int:
         return len(self.members)

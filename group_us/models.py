@@ -1,191 +1,122 @@
-import email
-import time
-import numpy as np
-import secrets
-from dataclasses import dataclass
 import dataclasses
-from typing import *
-from os import makedirs, path
-import json
-from email.mime.text import MIMEText
+import secrets
 import shutil
-
 from datetime import datetime
+from time import time
+
 from group_us import *
-from group_us.utils import BASE_URL, EmailClient
 from group_us.algorithm import *
+from group_us.email_utils import BASE_URL, EmailProducer
 
 
-@dataclass
-class person:
-    name: str
-    email: str
-    secret: str
-
-    def __init__(self, name: str, email: str, secret: str = None):
-        self.name = name
-        self.email = email
-        if (secret is not None):
-            self.secret = secret
-        else:
-            self.secret = secrets.token_urlsafe(16)
-
-        super().__init__()
+# from flask_mongoengine import MongoEngine as me
 
 
-@dataclass
-class matching:
-    id: str
-    deadline: float = time.time() + 7 * 24 * 60 * 60
-    nums: int = 0
-    title: str = None
-    grpSize: int = 4
-    owner: person = None
-    members: List[person] = None
-    preferences: List[List[int]] = None
-    finalGrps: List[List[members]] = None
+def get_rand():
+    return secrets.token_urlsafe(16)
 
-    def __init__(self, deadline: float = - 1, owner: person = None, title: str = "", members: List[person] = None, id: str = None, nums=None, preferences=None, grpSize: int = None, finalGrps: List[List[members]] = None):
-        self.owner = owner
-        self.members = members
-        if (deadline > 0):
-            self.deadline = deadline
-        else:
-            self.deadline = time.time() + 2*24*60*60
 
-        if (preferences != None):
-            self.preferences = preferences
-        else:
-            self.preferences = [[-1]*len(members)]*len(members)
-        if nums != None:
-            self.nums = nums
-        else:
-            self.nums = len(members)
+class Person(me.EmbeddedDocument):
+    name = me.StringField()
+    email = me.StringField()
+    index = me.IntField()
+    secret = me.StringField(default=get_rand)
 
-        if grpSize != None:
-            self.grpSize = grpSize
-        else:
-            self.grpSize = 4
 
-        if title != None:
-            self.title = title
-        else:
-            self.grpSize = "None"
+class Project(me.Document):
+    uid = me.StringField(unique=True, default=get_rand)
+    deadline = me.IntField(default=lambda: int(time()) + 7 * 24 * 60 * 60)
+    num_member = me.IntField(default=0)
+    finished = me.BooleanField(default=False)
+    title = me.StringField(default="No Title")
+    grp_size = me.IntField(default=4)
+    owner = me.EmbeddedDocumentField(Person)
+    members = me.EmbeddedDocumentListField(Person)
+    preferences = me.ListField(me.ListField(me.IntField()))
+    final_groups = me.ListField(me.ListField(Person))
 
-        if finalGrps != None:
-            self.finalGrps = finalGrps
-        else:
-            self.finalGrps = []
-
-        if id != None:
-            self.id = id
-        else:
-            self.id = secrets.token_urlsafe(16)
-
-        super().__init__()
-
-    def getDict(self):
-        return dataclasses.asdict(self)
-
-    @classmethod
-    def getFromFile(cls, id: str):
-        if (os.path.exists(os.path.join(dataDir, f"{id}.json"))):
-            f = open(os.path.join(dataDir, f"{id}.json"), "r")
-            obj = json.load(f)
-            f.close()
-            x = cls(**obj)
-            x.owner = person(**obj["owner"])
-            x.members = []
-            for i in obj["members"]:
-                x.members.append(person(**i))
-
-            return x
-        else:
-            return None
-
-    @classmethod
-    def saveToFile(cls, obj):
-        if not os.path.exists(dataDir):
-            os.makedirs(dataDir)
-
-        f = open(os.path.join(dataDir, f"{obj.id}.json"), "w")
-        logger.debug(f.name)
-        json.dump(dataclasses.asdict(obj), f, indent=2)
-        f.close()
-
-    def isComplete(self) -> bool:
+    def is_complete(self) -> bool:
         return np.count_nonzero(np.array(self.preferences) == -1) == 0
 
-    def hasDeadlinePassed(self) -> bool:
-        return time.time() > self.deadline
+    def has_deadline_passed(self) -> bool:
+        return time() > self.deadline
 
-    def hasSecret(self, secret: str):
+    def has_secret(self, secret: str):
         has = False
         name = ""
-        for i in self.members:
-            if (i.secret == secret):
+        for member in self.members:
+            if member.secret == secret:
                 has = True
-                name = i.name
+                name = member.name
                 break
         return has, name
 
-    def getNames(self):
+    def get_names(self):
         lst = []
         for i, mem in enumerate(self.members):
             lst.append(mem.name)
         return lst
 
-    def getIndexFromSecret(self, secret: str) -> int:
-        ind = -1
-        for i in range(len(self.members)):
-            if (self.members[i].secret == secret):
-                ind = i
-                break
-        return ind
+    def get_index_from_secret(self, secret: str) -> int:
+        for member in self.members:
+            if member.secret == secret:
+                return member.index
+        return -1
 
-    def sendInitMails(self):
+    def send_init_mails(self):
         logger.debug("Sending Init Emails")
-        email = EmailClient()
+        email_client = EmailProducer.get_instance()
         for i in self.members:
-            email.send_email(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
-                             body="<br>".join([i.name, f"""Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.id}/{i.secret}">form</a> for {self.title}. Deadline is {datetime.fromtimestamp(self.deadline).strftime("%H:%M %d-%m-%Y")}. Group Size is {self.grpSize}""", "Form Created By", self.owner.name]))
+            email_client.produce(recipient=[i.email], subject=f"{self.title} Group Formation Preferences",
+                                 body="<br>".join([i.name,
+                                                   f"""
+                                               Please Fill Out this <a href="{BASE_URL}/fillPreference/{self.uid}/{i.secret}">form</a> for {self.title}. 
+                                               Deadline is {datetime.fromtimestamp(self.deadline).strftime(
+                                                       "%H:%M %d-%m-%Y")}. Group Size is {self.grp_size}""",
+                                                   "Form Created By", self.owner.name]))
 
         logger.debug("Sent Init Emails")
-        email.close()
 
-    def sendFinalMail(self):
+    def send_final_mail(self):
         logger.debug("Sending Final Mails")
-        email = EmailClient()
-        finalMembersAll = []
-        for i in self.finalGrps:
-            finalMembersAll.append(' '.join([x.name for x in i]))
-        for i, grp in enumerate(self.finalGrps):
-            for j in grp:
-                email.send_email(recipient=[j.email], subject=f"Group Allocation for {self.title}",
-                                 body="<br>".join([j.name, f"Your Group for {self.title} consits of:", finalMembersAll[i]]))
-        email.send_email(recipient=[self.owner.email], subject=f"Group Allocation for {self.title}", body="<br>".join(
-            [self.owner.name, f"The Groups For {self.title} are:", '<br>'.join(finalMembersAll)]))
+        email_client = EmailProducer.get_instance()
+        groups_list = []
+        for group in self.final_groups:
+            groups_list.append(' '.join([member.name for member in group]))
+
+        for idx, group in enumerate(self.final_groups):
+            for member in group:
+                email_client.produce(recipient=[member.email], subject=f"Group Allocation for {self.title}",
+                                     body="<br>".join([member.name, f"Your Group for {self.title} consists of:",
+                                                       groups_list[idx]]))
+        email_client.produce(recipient=[self.owner.email], subject=f"Group Allocation for {self.title}",
+                             body="<br>".join(
+                                 [self.owner.name, f"The Groups For {self.title} are:",
+                                  '<br>'.join(groups_list)]))
         logger.debug("Sent Final Emails")
-        email.close()
+        email_client.close()
 
     def solve(self):
-        logger.debug(f"Solving {self.id}")
+        logger.debug(f"Solving {self.uid}")
         arr = np.array(self.preferences)
         arr[arr < 0] = 0
 
-        score, grps = Game(
-            arr, r=self.grpSize, iter2=2, iter1=2).solve()
-        logger.debug(f"{score}----{grps}")
-        self.finalGrps = []
-        for grp in grps:
-            tempGrp = []
-            for memInd in grp:
-                tempGrp.append(self.members[memInd])
-            self.finalGrps.append(tempGrp)
+        score, groups = Game(
+            arr, r=self.grp_size, iter2=2, iter1=2).solve()
+        logger.debug(f"{score}----{groups}")
+        self.final_groups = []
+        for grp in groups:
+            temp_grp = []
+            for mem_idx in grp:
+                temp_grp.append(self.members[mem_idx])
+            self.final_groups.append(temp_grp)
+
         if not os.path.exists(os.path.join(dataDir, "complete", "")):
             os.makedirs(os.path.join(dataDir, "complete", ""))
-        open(os.path.join(dataDir, "complete", f"{self.id}.json"), "w").close()
-        shutil.move(os.path.abspath(os.path.join(dataDir, f"{self.id}.json")),
+
+        self.send_final_mail()
+
+        open(os.path.join(dataDir, "complete", f"{self.uid}.json"), "w").close()
+        shutil.move(os.path.abspath(os.path.join(dataDir, f"{self.uid}.json")),
                     os.path.abspath(os.path.join(
-                        dataDir, "complete", f"{self.id}.json")))
-        self.sendFinalMail()
+                        dataDir, "complete", f"{self.uid}.json")))

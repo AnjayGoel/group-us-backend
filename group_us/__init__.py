@@ -1,28 +1,39 @@
-from math import log
-import os.path
-from os import path
-from flask import Flask
 import logging
-app = Flask(__name__)
 
-dataDir = path.join( path.expanduser('~'),"GroupUsData","")
-logger= logging.getLogger()
-logger.setLevel(logging.DEBUG) # or whatever
-#handler = logging.FileHandler(path.join(dataDir,"log.log"), 'w', 'utf-8') # or whatever
-#handler.setFormatter(logging.Formatter('%(name)s:%(asctime)s:%(message)s')) # or whatever
-#logger.addHandler(handler)
+from dotenv import load_dotenv
+from flask import Flask
+from flask_mongoengine import MongoEngine
+
+from group_us.email_utils import *
+
+load_dotenv()
+
+app = Flask(__name__)
+app.config['MONGODB_SETTINGS'] = {
+    'db': os.getenv('MONGO_DB'),
+    'host': f"mongodb+srv://{os.getenv('MONGO_USERNAME')}:{os.getenv('MONGO_PASSWORD')}"
+            f"@{os.getenv('MONGO_HOST')}/{os.getenv('MONGO_DB')}?retryWrites=true&w=majority"
+}
+
+me = MongoEngine(app)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)  # or whatever
+
+EmailConsumer.start_all()
+
+# handler = logging.FileHandler(path.join(dataDir,"log.log"), 'w', 'utf-8') # or whatever
+# handler.setFormatter(logging.Formatter('%(name)s:%(asctime)s:%(message)s')) # or whatever
+# logger.addHandler(handler)
 
 import group_us.views
+
 
 @app.route("/")
 def main():
     return "TODO"
 
+
 if __name__ == "__main__":
-    if not os.path.exists(dataDir):
-            os.makedirs(dataDir)
-    
-    if not os.path.exists(path.join(dataDir,"complete","")):
-            os.makedirs(path.join(dataDir,"complete",""))
-    app.run() 
+    EmailConsumer.start_all()
+    app.run()
     logger.debug("Started")

@@ -48,7 +48,6 @@ class EmailProducer:
 
     def produce(self, recipient, subject, body):
         message_dict = {"recipient": recipient, "subject": subject, "body": body}
-        print(f"sent to queue message: {message_dict}")
         message_str = json.dumps(message_dict)
         self.channel.basic_publish(
             exchange='',
@@ -94,7 +93,6 @@ class EmailConsumer:
 
     def callback(self, ch, method, properties, body):
         message_dict = json.loads(body.decode())
-        print(f"got queue message: {message_dict}")
         msg = MIMEText(message_dict["body"], 'html')
         msg["From"] = "GroupUs"
         msg["To"] = ", ".join(message_dict["recipient"] if isinstance(

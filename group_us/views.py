@@ -1,15 +1,6 @@
-from os.path import isfile, join
-from posix import listdir
-import threading
-from flask import Flask, request, redirect
-from os import path
-import dataclasses
-from threading import *
+from flask import request
 from flask_cors import CORS, cross_origin
-from typing import *
-from dotenv import load_dotenv
-from group_us.check_deadlines import *
-from group_us import *
+
 from group_us.models import *
 
 cors = CORS(app)
@@ -19,51 +10,49 @@ deadlines = []
 
 
 @cross_origin()
-@app.route('/fill/<string:id>/<string:secret>', methods=['GET'])
-def fill(id: str, secret: str):
+@app.route('/fill/<file_id>/<string:secret>', methods=['GET'])
+def fill(file_id: str, secret: str):
     ret = {"status": 0}
-    names = []
-    if not (path.exists(os.path.join(dataDir, f"{id}.json"))):
+    project_gen = Project.objects(uid=file_id)
+    if project_gen.count() != 1:
+        return ret
+
+    project: Project = next(project_gen)
+    has_secret, member_name = project.has_secret(secret)
+    if not has_secret or project.deadline < time():
+        ret["message"] = "Invalid URL or Deadline Passed"
+        return json.dumps(ret), 404
+    else:
+        ret["name"] = member_name
+        ret["title"] = project.title
+        ret["owner_name"] = project.owner.name
+        ret["names"] = project.get_names()
+        ret["status"] = 1
+        return json.dumps(ret), 201
+
+
+@cross_origin()
+@app.route('/submit/<file_id>/<string:secret>', methods=['POST'])
+def submit(file_id: str, secret: str):
+    ret = {"status": 0}
+    if not (path.exists(os.path.join(dataDir, f"{file_id}.json"))):
         ret["message"] = "File Not Found"
         return json.dumps(ret), 404
     else:
-        obj = matching.getFromFile(id)
-        hasSecret, name = obj.hasSecret(secret)
-        if (not hasSecret or obj.deadline < time.time()):
-            ret["message"] = "Invalid URL or Deadline Passed"
-            return json.dumps(ret), 404
-        else:
-            ret["name"] = name
-            ret["title"] = obj.title
-            ret["owner_name"] = obj.owner.name
-            ret["names"] = obj.getNames()
-            ret["status"] = 1
-            return json.dumps(ret), 201
-
-
-@ cross_origin()
-@ app.route('/submit/<string:id>/<string:secret>', methods=['POST'])
-def submit(id: str, secret: str):
-    ret = {"status": 0}
-    names = []
-    if not (path.exists(os.path.join(dataDir, f"{id}.json"))):
-        ret["message"] = "File Not Found"
-        return json.dumps(ret), 404
-    else:
-        obj = matching.getFromFile(id)
-        if (not obj.hasSecret(secret) or obj.deadline < time.time()):
+        obj = Project.get_from_file(file_id)
+        if not obj.has_secret(secret) or obj.deadline < time.time():
             ret["message"] = "Invalid URL or Deadline Passed"
             return str(ret), 404
         else:
             def fill_in_background(data: Dict):
-                pref = [0]*(obj.nums)
+                pref = [0] * obj.num_member
                 for i in range(len(data)):
                     index = obj.members.index(
-                        next(x for x in obj.members if x.name == data[i][0]))
-                    pref[index] = data[i][1]
-                obj.preferences[obj.getIndexFromSecret(secret)] = pref
-                matching.saveToFile(obj)
-                if (obj.hasDeadlinePassed() or obj.isComplete()):
+                        next(x for x in obj.members if x.name == data[i]["name"]))
+                    pref[index] = data[i]["score"]
+                obj.preferences[obj.get_index_from_secret(secret)] = pref
+                Project.save_to_file(obj)
+                if obj.has_deadline_passed() or obj.is_complete():
                     obj.solve()
 
             th = Thread(target=fill_in_background, kwargs={
@@ -72,32 +61,45 @@ def submit(id: str, secret: str):
             ret["status"] = 1
             return json.dumps(ret), 201
 
-@ cross_origin()
-@ app.route('/create', methods=['POST'])
+
+@cross_origin()
+@app.route('/create', methods=['POST'])
 def create():
     def do_in_background(data: Dict):
-        owner = person(data['owner_name'], data['owner_email'])
+        owner = Person(name=data['owner_name'], email=data['owner_email'], index=-1)
         members = []
-        for i in range(len(data["member_names"])):
-            members.append(person(data["member_names"][i],
-                                  data["member_emails"][i]))
-        obj = matching(deadline=data["deadline"], members=members,
-                       owner=owner, title=data["title"], grpSize=int(data["grpSize"]))
-        matching.saveToFile(obj)
-        deadlines.append([obj.id, obj.deadline])
-        obj.sendInitMails()
+        for idx, member in enumerate(data["members"]):
+            members.append(
+                Person(
+                    name=member["name"],
+                    email=member["email"],
+                    index=idx
+                ))
+
+        obj = Project(
+            deadline=data["deadline"],
+            members=members,
+            owner=owner,
+            title=data["title"],
+            grp_size=int(data["grpSize"]),
+            num_member=len(members),
+        )
+        obj.save()
+        obj.send_init_mails()
+
     ret = {"status": 0}
     data = request.get_json()
-    if(len(data["member_names"]) != len(data["member_emails"])):
-        ret["message"] = "Bad Request. Check The Form Once Again."
-        return json.dumps(ret), 400
 
     th = Thread(target=do_in_background, kwargs={'data': data})
     th.start()
     return json.dumps({"status": 1}), 201
 
-@ cross_origin()
-@ app.route('/check', methods=['GET'])
+
+@cross_origin()
+@app.route('/check', methods=['GET'])
 def check():
-    check_deadline()
+    Thread(
+        target=check_deadline
+    ).start()
+
     return "Done"
