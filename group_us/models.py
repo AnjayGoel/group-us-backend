@@ -111,12 +111,4 @@ class Project(me.Document):
                 temp_grp.append(self.members[mem_idx])
             self.final_groups.append(temp_grp)
 
-        if not os.path.exists(os.path.join(dataDir, "complete", "")):
-            os.makedirs(os.path.join(dataDir, "complete", ""))
-
         self.send_final_mail()
-
-        open(os.path.join(dataDir, "complete", f"{self.uid}.json"), "w").close()
-        shutil.move(os.path.abspath(os.path.join(dataDir, f"{self.uid}.json")),
-                    os.path.abspath(os.path.join(
-                        dataDir, "complete", f"{self.uid}.json")))

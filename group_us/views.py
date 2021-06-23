@@ -35,31 +35,32 @@ def fill(file_id: str, secret: str):
 @app.route('/submit/<file_id>/<string:secret>', methods=['POST'])
 def submit(file_id: str, secret: str):
     ret = {"status": 0}
-    if not (path.exists(os.path.join(dataDir, f"{file_id}.json"))):
-        ret["message"] = "File Not Found"
-        return json.dumps(ret), 404
-    else:
-        obj = Project.get_from_file(file_id)
-        if not obj.has_secret(secret) or obj.deadline < time.time():
-            ret["message"] = "Invalid URL or Deadline Passed"
-            return str(ret), 404
-        else:
-            def fill_in_background(data: Dict):
-                pref = [0] * obj.num_member
-                for i in range(len(data)):
-                    index = obj.members.index(
-                        next(x for x in obj.members if x.name == data[i]["name"]))
-                    pref[index] = data[i]["score"]
-                obj.preferences[obj.get_index_from_secret(secret)] = pref
-                Project.save_to_file(obj)
-                if obj.has_deadline_passed() or obj.is_complete():
-                    obj.solve()
+    project_gen = Project.objects(uid=file_id)
 
-            th = Thread(target=fill_in_background, kwargs={
-                "data": request.get_json()["data"]})
-            th.start()
-            ret["status"] = 1
-            return json.dumps(ret), 201
+    if project_gen.count() != 1:
+        return ret
+
+    project: Project = next(project_gen)
+    if not project.has_secret(secret) or project.deadline < time():
+        ret["message"] = "Invalid URL or Deadline Passed"
+        return str(ret), 404
+    else:
+        def fill_in_background(data: Dict):
+            pref = [0] * project.num_member
+            for i in range(len(data)):
+                index = next(x for x in project.members if x.name == data[i]["name"]).index
+                pref[index] = data[i]["score"]
+
+            project.preferences[project.get_index_from_secret(secret)] = pref
+            project.save()
+            if project.has_deadline_passed() or project.is_complete():
+                project.solve()
+
+    th = Thread(target=fill_in_background, kwargs={
+        "data": request.get_json()["data"]})
+    th.start()
+    ret["status"] = 1
+    return json.dumps(ret), 201
 
 
 @cross_origin()
@@ -76,7 +77,7 @@ def create():
                     index=idx
                 ))
 
-        obj = Project(
+        project = Project(
             deadline=data["deadline"],
             members=members,
             owner=owner,
@@ -84,8 +85,10 @@ def create():
             grp_size=int(data["grpSize"]),
             num_member=len(members),
         )
-        obj.save()
-        obj.send_init_mails()
+        project.preferences = [[0] * project.num_member] * project.num_member
+
+        project.save()
+        project.send_init_mails()
 
     ret = {"status": 0}
     data = request.get_json()
