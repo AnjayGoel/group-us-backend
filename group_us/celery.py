@@ -1,7 +1,7 @@
 import os
 
 from celery import Celery
-
+from .secrets import *
 from group_us import settings
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'group_us.settings')

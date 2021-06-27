@@ -81,7 +81,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api',
-    'corsheaders'
+    'corsheaders',
+    'django-celery'
 ]
 
 MIDDLEWARE = [
