@@ -1,3 +1,4 @@
+/group_us/secrets.py
 /group_us/data/
 /group_us/__pycache__/
 env/
@@ -6,5 +7,3 @@ env/
 data/
 /group_us/.env
 venv
-__pycache__
-.idea

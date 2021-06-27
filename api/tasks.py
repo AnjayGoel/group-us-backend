@@ -5,13 +5,11 @@ import time
 from email.mime.text import MIMEText
 
 from celery import Task
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
 from api.algorithm import *
 from group_us.celery import app
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 
