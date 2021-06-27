@@ -6,3 +6,5 @@ env/
 data/
 /group_us/.env
 venv
+__pycache__
+.idea
