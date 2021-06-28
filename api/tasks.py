@@ -53,6 +53,7 @@ class mongo_task(Task):
     base=email_task,
     autoretry_for=(Exception,),
     retry_backoff=True,
+    name='send_email',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def send_email(recipient, subject, body):
@@ -68,6 +69,7 @@ def send_email(recipient, subject, body):
     base=mongo_task,
     autoretry_for=(Exception,),
     retry_backoff=True,
+    name='insert_or_update',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def insert_or_update_project(obj):
@@ -88,6 +90,7 @@ def check_deadline():
     base=mongo_task,
     autoretry_for=(Exception,),
     retry_backoff=True,
+    name='solve_and_send',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def solve_and_mail_results(uid):
