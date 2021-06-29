@@ -18,7 +18,7 @@ class email_task(Task):
     _connection = None
 
     def connect(self):
-        self._connection = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        self._connection = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
         self._connection.login(
             os.getenv("SRG_EMAIL"),
             os.getenv("SRG_PASSWORD")
