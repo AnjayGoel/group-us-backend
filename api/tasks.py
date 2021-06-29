@@ -4,6 +4,7 @@ import smtplib
 import time
 from email.mime.text import MIMEText
 
+import pymongo.errors as pme
 from celery import Task
 from pymongo import MongoClient
 
@@ -16,14 +17,19 @@ logger = logging.getLogger(__name__)
 class email_task(Task):
     _connection = None
 
+    def connect(self):
+        self._connection = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        self._connection.login(
+            os.getenv("SRG_EMAIL"),
+            os.getenv("SRG_PASSWORD")
+        )
+        logger.info("SMTP Connected, sleeping for 2 seconds")
+        time.sleep(2)
+
     @property
     def connection(self):
         if self._connection is None:
-            self._connection = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-            self._connection.login(
-                os.getenv("SRG_EMAIL"),
-                os.getenv("SRG_PASSWORD")
-            )
+            self.connect()
         return self._connection
 
 
@@ -31,15 +37,20 @@ class mongo_task(Task):
     _connection = None
     _collection = None
 
+    def connect(self):
+        self._connection = MongoClient(
+            host=
+            f'mongodb+srv://{os.getenv("MONGO_USERNAME")}:'
+            f'{os.getenv("MONGO_PASSWORD")}@{os.getenv("MONGO_HOST")}'
+            f'/{os.getenv("MONGO_DB")}?retryWrites=true&w=majority'
+        )
+        logger.info("Mongo Connected, sleeping for 2 seconds")
+        time.sleep(2)
+
     @property
     def connection(self):
         if self._connection is None:
-            self._connection = MongoClient(
-                host=
-                f'mongodb+srv://{os.getenv("MONGO_USERNAME")}:'
-                f'{os.getenv("MONGO_PASSWORD")}@{os.getenv("MONGO_HOST")}'
-                f'/{os.getenv("MONGO_DB")}?retryWrites=true&w=majority'
-            )
+            self.connect()
         return self._connection
 
     @property
@@ -51,25 +62,31 @@ class mongo_task(Task):
 
 @app.task(
     base=email_task,
+    name='send_email',
+    task_acks_late=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
-    name='send_email',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def send_email(recipient, subject, body):
-    msg = MIMEText(body, 'html')
-    msg["From"] = "GroupUs"
-    msg["To"] = ", ".join(recipient if isinstance(
-        recipient, list) else [recipient])
-    msg["Subject"] = subject
-    send_email.connection.sendmail(msg["From"], msg["To"], msg.as_string())
+    try:
+        msg = MIMEText(body, 'html')
+        msg["From"] = "GroupUs"
+        msg["To"] = ", ".join(recipient if isinstance(
+            recipient, list) else [recipient])
+        msg["Subject"] = subject
+        send_email.connection.sendmail(msg["From"], msg["To"], msg.as_string())
+    except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as err:
+        send_email.connect()
+        raise err
 
 
 @app.task(
     base=mongo_task,
+    name='insert_or_update',
+    task_acks_late=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
-    name='insert_or_update',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def insert_or_update_project(obj):
@@ -81,20 +98,30 @@ def insert_or_update_project(obj):
     name="check_deadline",
 )
 def check_deadline():
-    uids = check_deadline.collection.find({"finished": False, "deadline": {"$lt": int(time.time())}})
+    try:
+        uids = check_deadline.collection.find({"finished": False, "deadline": {"$lt": int(time.time())}})
+    except (pme.ConnectionFailure, pme.AutoReconnect) as err:
+        check_deadline.connect()
+        raise err
     for obj in uids:
         solve_and_mail_results.delay(obj["uid"])
 
 
 @app.task(
     base=mongo_task,
+    name='solve_and_send',
+    task_acks_late=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
-    name='solve_and_send',
     retry_kwargs={'max_retries': 3, 'countdown': 5}
 )
 def solve_and_mail_results(uid):
-    project = solve_and_mail_results.collection.find_one({"uid": uid})
+    try:
+        project = solve_and_mail_results.collection.find_one({"uid": uid})
+    except (pme.ConnectionFailure, pme.AutoReconnect) as err:
+        check_deadline.connect()
+        raise err
+
     if project is None:
         return
 
@@ -116,7 +143,7 @@ def solve_and_mail_results(uid):
 
     groups_list = []
     for group in final_groups:
-        groups_list.append(' '.join([member["name"] for member in group]))
+        groups_list.append(', '.join([member["name"] for member in group]))
 
     for idx, group in enumerate(final_groups):
         for member in group:
