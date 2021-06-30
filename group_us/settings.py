@@ -22,6 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-m*7vu^-$lb!(m0k_1*ctta4@a+&mjssy$or_6uh1%y=*ra(+&d'
 CELERY_BROKER_URL = 'amqp://localhost'
 CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_ENABLE_UTC = False
+CELERY_TASK_TIME_LIMIT = 120
 
 LOGGING = {
     'version': 1,
